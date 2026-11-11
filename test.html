@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="af">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebWinkel Boekhou V2</title>
+<style>
+*{box-sizing:border-box;font-family:Arial} body{margin:0;background:#0f172a;color:white;padding:15px}
+.card{background:#1e293b;padding:15px;border-radius:12px;margin-bottom:12px}
+.big{font-size:28px;font-weight:bold} .green{color:#4ade80} .blue{color:#60a5fa} .orange{color:#fbbf24} .red{color:#ef4444}
+input,select,button,textarea{width:100%;padding:10px;margin:5px 0;border-radius:8px;border:none}
+input,select,textarea{background:#334155;color:white} button{background:#22c55e;color:black;font-weight:bold;cursor:pointer}
+.btn2{background:#f59e0b} .klient{background:#0f172a;padding:12px;border-radius:10px;margin-top:10px;border-left:5px solid #22c55e}
+.klient.warn{border-left-color:#f59e0b} .klient.overdue{border-left-color:#ef4444}
+.small{font-size:12px;color:#94a3b8}
+.bar{height:8px;background:#334155;border-radius:10px;overflow:hidden;margin:6px 0}
+.fill{height:100%;background:#22c55e}
+.fill.warn{background:#f59e0b} .fill.overdue{background:#ef4444}
+.timer{font-weight:bold;font-size:15px}
+</style>
+</head>
+<body>
+<h1>💼 WebWinkel Boekhou V2</h1>
+<p class="small">Elke klient het sy eie timer</p>
+
+<div class="card">
+  <div>BESIGHEID POT</div><div class="big green" id="besigheidPot">R0</div>
+  <div>MY GELD</div><div class="big blue" id="myGeld">R0</div>
+  <div>Uitstaande: <span class="orange" id="uitstaande">R0</span></div>
+  <button onclick="vraNotifikasie()" class="btn2">🔔 Skakel Reminders AAN</button>
+</div>
+
+<div class="card">
+  <h3>➕ Nuwe Klient</h3>
+  <input id="naam" placeholder="Klient naam">
+  <select id="tipe">
+    <option value="once">ONCE-OFF - 100% Besigheid</option>
+    <option value="monthly">MONTHLY - 50/50 + Timer</option>
+  </select>
+  <input id="bedrag" type="number" placeholder="Bedrag bv 100">
+  <button onclick="voegBy()">Voeg By</button>
+</div>
+
+<div class="card">
+  <h3>💸 Uitgawe (Besigheid)</h3>
+  <input id="uitgaweNaam" placeholder="bv Data">
+  <input id="uitgaweBedrag" type="number" placeholder="Bedrag bv 150">
+  <button onclick="voegUitgawe()" style="background:#ef4444;color:white">Trek af van Besigheid Pot</button>
+</div>
+
+<div class="card"><h3>👥 Kliente + Timers</h3><div id="lys"></div></div>
+
+<div class="card">
+  <h3>📧 Email</h3>
+  <textarea id="emailBox" rows="6"></textarea>
+  <button onclick="copyEmail()">Copy Email</button>
+</div>
+
+<script>
+let data = JSON.parse(localStorage.getItem('webwinkel_v2') || '[]');
+let uitgawes = JSON.parse(localStorage.getItem('webwinkel_uit_v2') || '[]');
+function save(){ localStorage.setItem('webwinkel_v2', JSON.stringify(data)); localStorage.setItem('webwinkel_uit_v2', JSON.stringify(uitgawes)); render(); }
+
+function voegBy(){
+  let naam=document.getElementById('naam').value, tipe=document.getElementById('tipe').value, bedrag=Number(document.getElementById('bedrag').value);
+  if(!naam||!bedrag) return alert('Vul naam + bedrag in!');
+  let nou=new Date().toISOString();
+  data.push({naam,tipe,bedrag,paid:false,datum:nou,laasteBetaal:nou,dueDate:new Date(Date.now()+30*24*60*60*1000).toISOString()});
+  document.getElementById('naam').value=''; document.getElementById('bedrag').value='';
+  save();
+}
+function voegUitgawe(){
+  let n=document.getElementById('uitgaweNaam').value, b=Number(document.getElementById('uitgaweBedrag').value);
+  if(!n||!b) return alert('Vul uitgawe in!');
+  uitgawes.push({n,b}); document.getElementById('uitgaweNaam').value=''; document.getElementById('uitgaweBedrag').value=''; save();
+}
+function togglePaid(i){
+  data[i].paid=!data[i].paid;
+  if(data[i].paid){
+    data[i].laasteBetaal=new Date().toISOString();
+    // Stel nuwe due date = nou + 30 dae, timer reset
+    data[i].dueDate=new Date(Date.now()+30*24*60*60*1000).toISOString();
+  }
+  save();
+}
+function volgendeMaand(i){
+  // Vir monthly: maak hom weer NIE betaal nie, hou dieselfde due date
+  data[i].paid=false; save();
+}
+function maakEmail(i){
+  let k=data[i];
+  let dae = Math.ceil((new Date(k.dueDate)-new Date())/(1000*60*60*24));
+  let msg=`Hi ${k.naam},\n\nHoop dit gaan goed! Net 'n vriendelike reminder dat jou WebWinkel monthly van R${k.bedrag} oor ${dae} dae due is (${new Date(k.dueDate).toLocaleDateString('af-ZA')}).\n\nLaat weet asb as jy betaal het sodat ek dit kan afmerk.\n\nDankie!\nDylan - WebWinkel`;
+  document.getElementById('emailBox').value=msg;
+  window.scrollTo(0,document.body.scrollHeight);
+}
+function copyEmail(){ navigator.clipboard.writeText(document.getElementById('emailBox').value); alert('Gecopy!'); }
+
+function render(){
+  let besigheid=0,myne=0,uitstaan=0;
+  data.forEach(k=>{ if(!k.paid){uitstaan+=k.bedrag; return;} if(k.tipe==='once') besigheid+=k.bedrag; else {besigheid+=k.bedrag/2; myne+=k.bedrag/2;} });
+  besigheid-=uitgawes.reduce((s,x)=>s+x.b,0);
+  document.getElementById('besigheidPot').innerText='R'+besigheid;
+  document.getElementById('myGeld').innerText='R'+myne;
+  document.getElementById('uitstaande').innerText='R'+uitstaan;
+
+  let html='';
+  data.forEach((k,i)=>{
+    let timerHtml='', klas='', barHtml='';
+    if(k.tipe==='monthly'){
+      let due=new Date(k.dueDate); let nou=new Date();
+      let daeOor=Math.ceil((due-nou)/(1000*60*60*24));
+      let verby=(30-daeOor)/30*100; // hoeveel % van maand verby
+      let kleur=''; let teks='';
+      if(daeOor<=0){ klas='overdue'; kleur='overdue'; teks=`🔴 OVERDUE! Was due ${due.toLocaleDateString('af-ZA')}`; }
+      else if(daeOor<=7){ klas='warn'; kleur='warn'; teks=`🟠 Nog ${daeOor} dae oor - STUUR EMAIL NOU! Due ${due.toLocaleDateString('af-ZA')}`; }
+      else { teks=`🟢 Nog ${daeOor} dae oor - Due ${due.toLocaleDateString('af-ZA')}`; }
+      timerHtml=`<div class="timer ${daeOor<=0?'red':daeOor<=7?'orange':''}">${teks}</div>`;
+      barHtml=`<div class="bar"><div class="fill ${kleur}" style="width:${Math.min(100,Math.max(0,verby))}%"></div></div>`;
+    } else {
+      timerHtml=`<div class="small">Once-off - geen timer nie</div>`;
+    }
+    let status=k.paid?'✅ PAID':'❌ NIE BETAAL NIE';
+    let verdeel=k.tipe==='once'?`100% Besigheid = R${k.bedrag}`:`50/50 = R${k.bedrag/2} Myne + R${k.bedrag/2} Besigheid`;
+    html+=`<div class="klient ${klas}"><b>${k.naam}</b> - ${k.tipe.toUpperCase()} - R${k.bedrag}<br><span class="small">${verdeel} | ${status}</span><br>${timerHtml}${barHtml}
+    <button onclick="togglePaid(${i})" style="background:${k.paid?'#ef4444':'#22c55e'};color:white">${k.paid?'Merk as NIE betaal nie':'Merk as PAID - reset timer 30 dae'}</button>
+    ${k.tipe==='monthly'?`<button onclick="volgendeMaand(${i})" class="btn2">Volgende Maand - maak weer oop</button>`:''}
+    <button onclick="maakEmail(${i})" class="btn2">📧 Maak Email</button></div>`;
+  });
+  if(!data.length) html='<p class="small">Nog geen kliente nie.</p>';
+  document.getElementById('lys').innerHTML=html;
+  if(uitgawes.length) document.getElementById('lys').innerHTML+='<h4>Uitgawes:</h4>'+uitgawes.map(u=>`<p class="small">- ${u.n} : R${u.b}</p>`).join('');
+}
+function vraNotifikasie(){
+  if("Notification" in window){
+    Notification.requestPermission().then(p=>{
+      if(p==='granted') new Notification('WebWinkel Reminders AAN ✅',{body:'Elke klient het nou sy eie timer!'});
+    });
+  } else alert('Jou foon support nie notifications nie, maar timers werk steeds.');
+}
+function checkReminders(){
+  data.forEach(k=>{
+    if(k.tipe!=='monthly') return;
+    let daeOor=Math.ceil((new Date(k.dueDate)-new Date())/(1000*60*60*24));
+    if(daeOor===7 && Notification.permission==='granted' && !k.paid){
+      new Notification(`WebWinkel: ${k.naam} moet betaal!`,{body:`Nog 7 dae oor - R${k.bedrag} due. Stuur email!`});
+    }
+    if(daeOor===0 && Notification.permission==='granted' && !k.paid){
+      new Notification(`WebWinkel: ${k.naam} is OVERDUE!`,{body:`R${k.bedrag} was vandag due!`});
+    }
+  });
+}
+render(); checkReminders();
+// Update timers elke minuut sonder refresh
+setInterval(render, 60000);
+</script>
+</body>
+</html>
