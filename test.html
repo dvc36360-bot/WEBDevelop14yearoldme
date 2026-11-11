@@ -3,46 +3,47 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WebWinkel Boekhou - FINAL</title>
+<title>WebWinkel Boekhou - FINAL SAVED</title>
 <style>
 *{box-sizing:border-box;font-family:Arial} body{margin:0;background:#0f172a;color:white;padding:15px}
 .card{background:#1e293b;padding:15px;border-radius:12px;margin-bottom:12px}
 .big{font-size:28px;font-weight:bold} .green{color:#4ade80} .blue{color:#60a5fa} .orange{color:#fbbf24} .red{color:#ef4444}
 input,select,button,textarea{width:100%;padding:10px;margin:5px 0;border-radius:8px;border:none}
 input,select,textarea{background:#334155;color:white} button{background:#22c55e;color:black;font-weight:bold;cursor:pointer}
-.btn2{background:#f59e0b} .btnRed{background:#ef4444;color:white} .btnGrey{background:#64748b;color:white} .btnBlue{background:#3b82f6;color:white}
+.btn2{background:#f59e0b} .btnRed{background:#ef4444;color:white} .btnGrey{background:#64748b;color:white} .btnBlue{background:#3b82f6;color:white} .btnPurple{background:#a855f7;color:white}
 .klient{background:#0f172a;padding:12px;border-radius:10px;margin-top:10px;border-left:5px solid #22c55e}
 .klient.warn{border-left-color:#f59e0b} .klient.overdue{border-left-color:#ef4444}
 .small{font-size:12px;color:#94a3b8}
 .bar{height:8px;background:#334155;border-radius:10px;overflow:hidden;margin:6px 0}
 .fill{height:100%;background:#22c55e} .fill.warn{background:#f59e0b} .fill.overdue{background:#ef4444}
-.timer{font-weight:bold;font-size:16px;margin:6px 0}
 .timerBox{background:#1e293b;padding:8px;border-radius:8px;text-align:center;font-size:18px;font-weight:bold}
+.saved{color:#4ade80;font-size:12px}
 </style>
 </head>
 <body>
 <h1>💼 WebWinkel Bookkeeping</h1>
-<p class="small">Everything saves on your phone - even if you close and reopen</p>
+<p class="small">Saves automatically - even if you close browser</p>
+<p class="saved" id="savedStatus">✅ Loaded - Last saved: checking...</p>
 
 <div class="card">
   <div>BUSINESS POT</div><div class="big green" id="besigheidPot">R0</div>
   <div>MY MONEY</div><div class="big blue" id="myGeld">R0</div>
-  <div>Outstanding (not paid yet): <span class="orange" id="uitstaande">R0</span></div>
+  <div>Outstanding: <span class="orange" id="uitstaande">R0</span></div>
   <div class="small" id="totalInfo"></div>
+  <button onclick="forceSave()" class="btnBlue">💾 SAVE NOW - Force Save</button>
+  <button onclick="exportBackup()" class="btnPurple">📤 Export Backup (Save to phone)</button>
+  <button onclick="document.getElementById('importFile').click()" class="btnGrey">📥 Import Backup</button>
+  <input type="file" id="importFile" style="display:none" accept=".json,.txt" onchange="importBackup(event)">
   <button onclick="vraNotifikasie()" class="btn2">🔔 Turn Reminders ON</button>
   <button onclick="clearAlles()" class="btnRed">🗑️ CLEAR ALL - Start From Scratch</button>
 </div>
 
 <div class="card">
   <h3>➕ New Client</h3>
-  <input id="naam" placeholder="Client name - e.g. Piet's Barbershop">
-  <select id="tipe">
-    <option value="once">ONCE-OFF - 100% to Business</option>
-    <option value="monthly">MONTHLY - 50/50 + Timer</option>
-  </select>
+  <input id="naam" placeholder="Client name">
+  <select id="tipe"><option value="once">ONCE-OFF - 100% to Business</option><option value="monthly">MONTHLY - 50/50 + Timer</option></select>
   <input id="bedrag" type="number" placeholder="Amount e.g. 100">
   <button onclick="voegBy()">Add & Auto Calculate</button>
-  <p class="small">Example: Monthly R100 = R50 Mine + R50 Business. Once-off R400 = R400 Business.</p>
 </div>
 
 <div class="card">
@@ -55,195 +56,182 @@ input,select,textarea{background:#334155;color:white} button{background:#22c55e;
 <div class="card"><h3>👥 Clients + Live Timers</h3><div id="lys"></div></div>
 
 <div class="card">
-  <h3>📧 Email for client</h3>
-  <textarea id="emailBox" rows="7" placeholder="Click Email on a client, message appears here in English..."></textarea>
+  <h3>📧 Email</h3>
+  <textarea id="emailBox" rows="7"></textarea>
   <button onclick="copyEmail()">Copy Email</button>
 </div>
 
 <script>
-// --- STORAGE - BLY ALTYD, AL GAAN JY UIT EN WEER IN ---
-let data = JSON.parse(localStorage.getItem('webwinkel_final_clients') || '[]');
-let uitgawes = JSON.parse(localStorage.getItem('webwinkel_final_exp') || '[]');
-let totals = JSON.parse(localStorage.getItem('webwinkel_final_totals') || '{"business":0,"mine":0}');
+// ===== JAVA - PERSISTENT STORAGE FIX =====
+const KEY = 'webwinkel_FINAL_V3_ALL_IN_ONE';
+let state = { clients: [], expenses: [], totals: {business:0, mine:0} };
 
-function save(){
-  localStorage.setItem('webwinkel_final_clients', JSON.stringify(data));
-  localStorage.setItem('webwinkel_final_exp', JSON.stringify(uitgawes));
-  localStorage.setItem('webwinkel_final_totals', JSON.stringify(totals));
-  render();
+function load(){
+  try{
+    let saved = localStorage.getItem(KEY);
+    if(saved){
+      let parsed = JSON.parse(saved);
+      // Support old keys too
+      if(parsed.clients) state = parsed;
+    } else {
+      // Probeer ou keys laai as jy van ou file af kom
+      let oldClients = localStorage.getItem('webwinkel_final_clients');
+      let oldExp = localStorage.getItem('webwinkel_final_exp');
+      let oldTotals = localStorage.getItem('webwinkel_final_totals');
+      if(oldClients){ state.clients = JSON.parse(oldClients); }
+      if(oldExp){ state.expenses = JSON.parse(oldExp); }
+      if(oldTotals){ state.totals = JSON.parse(oldTotals); }
+      if(oldClients) saveNow(); // Migreer na nuwe key
+    }
+    console.log("Loaded:", state);
+    document.getElementById('savedStatus').innerText = "✅ Loaded - Clients: " + state.clients.length + " | Business: R" + state.totals.business + " | Mine: R" + state.totals.mine;
+  } catch(e){
+    console.log("Load error", e);
+    alert("Could not load saved data. Your browser may be in Private/Incognito mode - that deletes everything when you close it!");
+  }
 }
 
+function saveNow(){
+  try{
+    localStorage.setItem(KEY, JSON.stringify(state));
+    // Backup in 2 plekke ook, vir safety
+    localStorage.setItem(KEY + '_backup', JSON.stringify(state));
+    let now = new Date().toLocaleTimeString('en-ZA');
+    document.getElementById('savedStatus').innerText = "✅ Saved at " + now + " - Business: R" + state.totals.business + " | Mine: R" + state.totals.mine;
+    console.log("Saved at", now, state);
+  } catch(e){
+    alert("Cannot save! Your browser is blocking storage. Are you in Incognito/Private mode? That deletes everything when you close.");
+  }
+}
+
+function forceSave(){ saveNow(); alert("Saved! Your money is now safe. Business: R" + getBusinessNet() + " | Mine: R" + state.totals.mine); }
+
+// Save as jy uitgaan - BELANGRIK
+window.addEventListener('beforeunload', saveNow);
+window.addEventListener('pagehide', saveNow);
+document.addEventListener('visibilitychange', function(){ if(document.hidden) saveNow(); });
+
+// ===== APP LOGIC =====
 function voegBy(){
   let naam=document.getElementById('naam').value.trim();
   let tipe=document.getElementById('tipe').value;
   let bedrag=Number(document.getElementById('bedrag').value);
   if(!naam||!bedrag) return alert('Fill in name + amount!');
   let nou=new Date().toISOString();
-  // Monthly due = 30 days from now, Once-off has no timer
   let due = tipe==='monthly' ? new Date(Date.now()+30*24*60*60*1000).toISOString() : null;
-  data.push({naam,tipe,bedrag,paid:false,datum:nou,laasteBetaal:nou,dueDate:due,totalPaid:0});
+  state.clients.push({naam,tipe,bedrag,paid:false,datum:nou,laasteBetaal:nou,dueDate:due,totalPaid:0});
   document.getElementById('naam').value=''; document.getElementById('bedrag').value='';
-  save();
+  saveNow(); render();
 }
-
 function voegUitgawe(){
   let n=document.getElementById('uitgaweNaam').value.trim();
   let b=Number(document.getElementById('uitgaweBedrag').value);
   if(!n||!b) return alert('Fill in expense!');
-  uitgawes.push({n,b});
+  state.expenses.push({n,b});
   document.getElementById('uitgaweNaam').value=''; document.getElementById('uitgaweBedrag').value='';
-  save();
+  saveNow(); render();
 }
-
-// MARK AS PAID - SIT GELD IN POTS EN HOU DIT DAAR
 function togglePaid(i){
-  let k=data[i];
+  let k=state.clients[i];
   if(!k.paid){
-    // Gaan van NIE PAID na PAID - TEL BY
-    k.paid=true;
-    k.laasteBetaal=new Date().toISOString();
-    k.totalPaid = (k.totalPaid||0) + k.bedrag;
-    if(k.tipe==='once'){
-      totals.business += k.bedrag; // 100% Business
-    } else {
-      totals.business += k.bedrag/2; // Presies verdeel
-      totals.mine += k.bedrag/2;
-    }
-    // Monthly: stel nuwe due vir volgende maand, maar MOENIE geld clear nie
-    if(k.tipe==='monthly'){
-      k.dueDate=new Date(Date.now()+30*24*60*60*1000).toISOString();
-    }
+    k.paid=true; k.laasteBetaal=new Date().toISOString(); k.totalPaid=(k.totalPaid||0)+k.bedrag;
+    if(k.tipe==='once'){ state.totals.business+=k.bedrag; }
+    else { state.totals.business+=k.bedrag/2; state.totals.mine+=k.bedrag/2; k.dueDate=new Date(Date.now()+30*24*60*60*1000).toISOString(); }
   } else {
-    // Undo - as jy per ongeluk PAID gedruk het, haal dit weer uit
-    // Dit is NIE dieselfde as Volgende Maand nie!
-    if(!confirm("Undo PAID? This will remove R"+k.bedrag+" from your pots. Are you sure?")) return;
+    if(!confirm("Undo PAID? This will remove R"+k.bedrag+" from pots.")) return;
     k.paid=false;
-    if(k.tipe==='once'){ totals.business -= k.bedrag; }
-    else { totals.business -= k.bedrag/2; totals.mine -= k.bedrag/2; }
-    k.totalPaid = Math.max(0,(k.totalPaid||0)-k.bedrag);
+    if(k.tipe==='once'){ state.totals.business-=k.bedrag; }
+    else { state.totals.business-=k.bedrag/2; state.totals.mine-=k.bedrag/2; }
+    k.totalPaid=Math.max(0,(k.totalPaid||0)-k.bedrag);
   }
-  save();
+  saveNow(); render();
 }
-
-// VOLGENDE MAAND - HOU GELD, MOENIE CLEAR NIE, MAAK NET WEER OOP VIR NUWE BETALING
 function volgendeMaand(i){
-  let k=data[i];
+  let k=state.clients[i];
   if(k.tipe!=='monthly') return;
-  // HOU totals.business en totals.mine soos dit is!
-  // Maak net klient weer oop en gee hom 'n nuwe 30-dae timer
   k.paid=false;
   k.dueDate=new Date(Date.now()+30*24*60*60*1000).toISOString();
-  save();
-  alert(k.naam + " is now open for next month. Your Business Pot stays at R" + getBusinessNet() + " - it was NOT cleared. When they pay again, it will ADD on top.");
+  saveNow(); render();
+  alert(k.naam + " open for next month. Money KEPT - Business still R" + getBusinessNet() + ". When they pay again, it ADDS on top.");
 }
-
-function deleteEen(i){
-  if(!confirm("Delete " + data[i].naam + "? This will NOT remove money already in your pots.")) return;
-  data.splice(i,1); save();
-}
-function deleteUitgawe(i){ uitgawes.splice(i,1); save(); }
-
+function deleteEen(i){ if(!confirm("Delete " + state.clients[i].naam + "? Money already in pots stays.")) return; state.clients.splice(i,1); saveNow(); render(); }
+function deleteUitgawe(i){ state.expenses.splice(i,1); saveNow(); render(); }
 function clearAlles(){
-  if(!confirm("Are you sure? This will delete ALL clients, ALL money and ALL expenses and set everything to R0!")) return;
-  let check2 = prompt("Type DELETE to confirm:");
-  if(check2 !== "DELETE"){ alert("Nothing was cleared - you did not type DELETE."); return; }
-  data=[]; uitgawes=[]; totals={business:0,mine:0};
-  localStorage.removeItem('webwinkel_final_clients');
-  localStorage.removeItem('webwinkel_final_exp');
-  localStorage.removeItem('webwinkel_final_totals');
-  save();
-  alert("Done! Everything cleared. You start fresh at R0.");
+  if(!confirm("Are you sure? Delete ALL clients, money, expenses to R0!")) return;
+  let c=prompt("Type DELETE to confirm:");
+  if(c!=="DELETE"){ alert("Nothing cleared."); return; }
+  state={clients:[],expenses:[],totals:{business:0,mine:0}};
+  localStorage.removeItem(KEY); localStorage.removeItem(KEY+'_backup');
+  saveNow(); render(); alert("Cleared. Fresh start R0.");
 }
+function getBusinessNet(){ return state.totals.business - state.expenses.reduce((s,x)=>s+x.b,0); }
 
-function getBusinessNet(){
-  let uit = uitgawes.reduce((s,x)=>s+x.b,0);
-  return totals.business - uit;
+function exportBackup(){
+  let blob = new Blob([JSON.stringify(state)], {type:'application/json'});
+  let a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='webwinkel-backup.json'; a.click();
+  alert("Backup downloaded! Keep it safe in your Files. If your browser ever clears, you can Import it back.");
 }
-
+function importBackup(e){
+  let file=e.target.files[0]; if(!file) return;
+  let r=new FileReader(); r.onload=function(){ try{ state=JSON.parse(r.result); saveNow(); render(); alert("Backup restored!"); } catch(err){ alert("Invalid backup file"); } }; r.readAsText(file);
+}
 function maakEmail(i){
-  let k=data[i];
-  let dae = k.tipe==='monthly' && k.dueDate ? Math.ceil((new Date(k.dueDate)-new Date())/(1000*60*60*24)) : 7;
-  let dateStr = k.tipe==='monthly' && k.dueDate ? new Date(k.dueDate).toLocaleDateString('en-ZA') : 'soon';
-  let msg = "";
-  if(k.tipe==='monthly'){
-    msg = `Hi ${k.naam},\n\nI hope you are doing well!\n\nThis is a friendly reminder that your WebWinkel monthly hosting of R${k.bedrag} is due in ${dae} days (${dateStr}).\n\nPlease let me know once you have paid so I can mark it as paid.\n\nThank you so much for your support!\n\nKind regards,\nDylan - WebWinkel`;
-  } else {
-    msg = `Hi ${k.naam},\n\nI hope you are doing well!\n\nThis is a friendly reminder that your WebWinkel once-off payment of R${k.bedrag} is still outstanding.\n\nPlease let me know once you have paid so I can mark it as paid.\n\nThank you so much for your support!\n\nKind regards,\nDylan - WebWinkel`;
-  }
+  let k=state.clients[i];
+  let dae=k.tipe==='monthly'&&k.dueDate?Math.ceil((new Date(k.dueDate)-new Date())/(1000*60*60*24)):7;
+  let dateStr=k.tipe==='monthly'&&k.dueDate?new Date(k.dueDate).toLocaleDateString('en-ZA'):'soon';
+  let msg=k.tipe==='monthly'
+    ? `Hi ${k.naam},\n\nI hope you are doing well!\n\nThis is a friendly reminder that your WebWinkel monthly hosting of R${k.bedrag} is due in ${dae} days (${dateStr}).\n\nPlease let me know once you have paid so I can mark it as paid.\n\nThank you so much for your support!\n\nKind regards,\nDylan - WebWinkel`
+    : `Hi ${k.naam},\n\nI hope you are doing well!\n\nThis is a friendly reminder that your WebWinkel once-off payment of R${k.bedrag} is still outstanding.\n\nPlease let me know once you have paid so I can mark it as paid.\n\nThank you so much for your support!\n\nKind regards,\nDylan - WebWinkel`;
   document.getElementById('emailBox').value=msg;
   window.scrollTo(0,document.body.scrollHeight);
 }
 function copyEmail(){ navigator.clipboard.writeText(document.getElementById('emailBox').value); alert('Email copied!'); }
-
 function formatTimer(dueDate){
-  let diff = new Date(dueDate) - new Date();
+  let diff=new Date(dueDate)-new Date();
   if(diff<=0) return {text:"🔴 OVERDUE! Payment was due!", dae:0, isOverdue:true};
-  let dae = Math.floor(diff/(1000*60*60*24));
-  let ure = Math.floor((diff%(1000*60*60*24))/(1000*60*60));
-  let min = Math.floor((diff%(1000*60*60))/(1000*60));
-  let sek = Math.floor((diff%(1000*60))/1000);
-  return {text:`⏰ ${dae} days, ${ure} hrs, ${min} min, ${sek} sec left`, dae, isOverdue:false, raw:diff};
+  let dae=Math.floor(diff/(1000*60*60*24));
+  let ure=Math.floor((diff%(1000*60*60*24))/(1000*60*60));
+  let min=Math.floor((diff%(1000*60*60))/(1000*60));
+  let sek=Math.floor((diff%(1000*60))/1000);
+  return {text:`⏰ ${dae} days, ${ure} hrs, ${min} min, ${sek} sec left`, dae, isOverdue:false};
 }
-
 function render(){
-  let uitstaan=0;
-  data.forEach(k=>{ if(!k.paid) uitstaan+=k.bedrag; });
-  let businessNet = getBusinessNet();
+  let uitstaan=0; state.clients.forEach(k=>{ if(!k.paid) uitstaan+=k.bedrag; });
+  let businessNet=getBusinessNet();
   document.getElementById('besigheidPot').innerText='R'+businessNet;
-  document.getElementById('myGeld').innerText='R'+totals.mine;
+  document.getElementById('myGeld').innerText='R'+state.totals.mine;
   document.getElementById('uitstaande').innerText='R'+uitstaan;
-  document.getElementById('totalInfo').innerText = 'Total collected so far: R' + (totals.business + totals.mine) + ' | Expenses: R' + uitgawes.reduce((s,x)=>s+x.b,0);
-
+  document.getElementById('totalInfo').innerText='Total collected: R'+(state.totals.business+state.totals.mine)+' | Expenses: R'+state.expenses.reduce((s,x)=>s+x.b,0);
   let html='';
-  data.forEach((k,i)=>{
+  state.clients.forEach((k,i)=>{
     let timerHtml='', klas='', barHtml='';
-    if(k.tipe==='monthly' && k.dueDate){
-      let t = formatTimer(k.dueDate);
-      let dueStr = new Date(k.dueDate).toLocaleDateString('en-ZA');
-      let verby = Math.min(100, Math.max(0, (30 - t.dae)/30*100));
-      let kleur=''; 
-      if(t.isOverdue){ klas='overdue'; kleur='overdue'; }
-      else if(t.dae<=7){ klas='warn'; kleur='warn'; }
+    if(k.tipe==='monthly'&&k.dueDate){
+      let t=formatTimer(k.dueDate);
+      let dueStr=new Date(k.dueDate).toLocaleDateString('en-ZA');
+      let verby=Math.min(100,Math.max(0,(30-t.dae)/30*100));
+      let kleur=''; if(t.isOverdue){klas='overdue';kleur='overdue';} else if(t.dae<=7){klas='warn';kleur='warn';}
       timerHtml=`<div class="timerBox ${t.isOverdue?'red':t.dae<=7?'orange':''}">${t.text}<div class="small" style="font-weight:normal">Due: ${dueStr} | ${k.paid?'PAID - Timer for NEXT month':'NOT PAID YET'}</div></div>`;
       barHtml=`<div class="bar"><div class="fill ${kleur}" style="width:${verby}%"></div></div>`;
-    } else if(k.tipe==='once'){
-      timerHtml=`<div class="small">Once-off - No monthly timer. Once PAID, stays PAID forever.</div>`;
-    }
+    } else if(k.tipe==='once'){ timerHtml=`<div class="small">Once-off - No monthly timer. Once PAID, stays PAID forever.</div>`; }
     let status=k.paid?'✅ PAID':'❌ NOT PAID';
     let verdeel=k.tipe==='once'?`100% Business = R${k.bedrag}`:`Split exactly: R${k.bedrag/2} Mine + R${k.bedrag/2} Business (Total R${k.bedrag})`;
-    html+=`<div class="klient ${klas}"><b>${k.naam}</b> - ${k.tipe.toUpperCase()} - R${k.bedrag}<br><span class="small">${verdeel} | ${status} | Total paid so far: R${k.totalPaid||0}</span><br>${timerHtml}${barHtml}
-    <button onclick="togglePaid(${i})" style="background:${k.paid?'#ef4444':'#22c55e'};color:white">${k.paid?'Undo PAID (remove from pots)':'Mark as PAID - Add to pots'}</button>
+    html+=`<div class="klient ${klas}"><b>${k.naam}</b> - ${k.tipe.toUpperCase()} - R${k.bedrag}<br><span class="small">${verdeel} | ${status} | Total paid: R${k.totalPaid||0}</span><br>${timerHtml}${barHtml}
+    <button onclick="togglePaid(${i})" style="background:${k.paid?'#ef4444':'#22c55e'};color:white">${k.paid?'Undo PAID':'Mark as PAID - Add to pots'}</button>
     ${k.tipe==='monthly'?`<button onclick="volgendeMaand(${i})" class="btnBlue">Next Month - Keep money, open again</button>`:''}
     <button onclick="maakEmail(${i})" class="btn2">📧 Make Email (English)</button>
     <button onclick="deleteEen(${i})" class="btnGrey">🗑️ Delete this client</button></div>`;
   });
-  if(!data.length) html='<p class="small">No clients yet.</p>';
+  if(!state.clients.length) html='<p class="small">No clients yet.</p>';
   document.getElementById('lys').innerHTML=html;
-  if(uitgawes.length) document.getElementById('lys').innerHTML+='<h4>Expenses:</h4>'+uitgawes.map((u,idx)=>`<p class="small">- ${u.n} : R${u.b} <span onclick="deleteUitgawe(${idx})" style="color:#ef4444;cursor:pointer"> [x]</span></p>`).join('');
+  if(state.expenses.length) document.getElementById('lys').innerHTML+='<h4>Expenses:</h4>'+state.expenses.map((u,idx)=>`<p class="small">- ${u.n} : R${u.b} <span onclick="deleteUitgawe(${idx})" style="color:#ef4444;cursor:pointer"> [x]</span></p>`).join('');
 }
+function vraNotifikasie(){ if("Notification" in window){ Notification.requestPermission().then(p=>{ if(p==='granted') new Notification('WebWinkel Reminders ON ✅',{body:'Each client has his own live timer!'}); }); } else alert('Phone does not support notifications, timers still work.'); }
+function checkReminders(){ state.clients.forEach(k=>{ if(k.tipe!=='monthly'||!k.dueDate) return; let daeOor=Math.ceil((new Date(k.dueDate)-new Date())/(1000*60*60*24)); if(daeOor===7&&Notification.permission==='granted'&&!k.paid){ new Notification(`WebWinkel: ${k.naam} must pay!`,{body:`Only 7 days left - R${k.bedrag} due.`}); } if(daeOor===0&&Notification.permission==='granted'&&!k.paid){ new Notification(`WebWinkel: ${k.naam} OVERDUE!`,{body:`R${k.bedrag} was due today!`}); } }); }
 
-function vraNotifikasie(){
-  if("Notification" in window){
-    Notification.requestPermission().then(p=>{
-      if(p==='granted') new Notification('WebWinkel Reminders ON ✅',{body:'Each client now has his own live timer!'});
-    });
-  } else alert('Your phone does not support notifications, but timers still work.');
-}
-function checkReminders(){
-  data.forEach(k=>{
-    if(k.tipe!=='monthly' || !k.dueDate) return;
-    let daeOor=Math.ceil((new Date(k.dueDate)-new Date())/(1000*60*60*24));
-    if(daeOor===7 && Notification.permission==='granted' && !k.paid){
-      new Notification(`WebWinkel: ${k.naam} must pay!`,{body:`Only 7 days left - R${k.bedrag} due. Send email!`});
-    }
-    if(daeOor===0 && Notification.permission==='granted' && !k.paid){
-      new Notification(`WebWinkel: ${k.naam} is OVERDUE!`,{body:`R${k.bedrag} was due today!`});
-    }
-  });
-}
-render(); checkReminders();
-// Update timer elke sekonde - letterlik live
+// START
+load(); render(); checkReminders();
 setInterval(render, 1000);
+setInterval(saveNow, 10000); // Auto-save elke 10 sekondes ook
 </script>
 </body>
 </html>
