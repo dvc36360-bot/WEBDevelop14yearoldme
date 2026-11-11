@@ -6,6 +6,6 @@
   South Africa example format: 27XXXXXXXXX (no +, spaces or leading 0).
 */
 window.WEBWINKEL_CONFIG = {
-  whatsappNumber: "",
-  contactEmail: ""
+  whatsappNumber: "0626090871",
+  contactEmail: "dvc36360@gmail.com"
 };
