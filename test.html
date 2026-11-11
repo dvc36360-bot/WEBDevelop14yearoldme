@@ -1,75 +1,87 @@
 <!DOCTYPE html>
-<html lang="af">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WebWinkel Boekhou - Alles in 1</title>
+<title>WebWinkel Boekhou - FINAL</title>
 <style>
 *{box-sizing:border-box;font-family:Arial} body{margin:0;background:#0f172a;color:white;padding:15px}
 .card{background:#1e293b;padding:15px;border-radius:12px;margin-bottom:12px}
 .big{font-size:28px;font-weight:bold} .green{color:#4ade80} .blue{color:#60a5fa} .orange{color:#fbbf24} .red{color:#ef4444}
 input,select,button,textarea{width:100%;padding:10px;margin:5px 0;border-radius:8px;border:none}
 input,select,textarea{background:#334155;color:white} button{background:#22c55e;color:black;font-weight:bold;cursor:pointer}
-.btn2{background:#f59e0b} .btnRed{background:#ef4444;color:white} .btnGrey{background:#64748b;color:white}
+.btn2{background:#f59e0b} .btnRed{background:#ef4444;color:white} .btnGrey{background:#64748b;color:white} .btnBlue{background:#3b82f6;color:white}
 .klient{background:#0f172a;padding:12px;border-radius:10px;margin-top:10px;border-left:5px solid #22c55e}
 .klient.warn{border-left-color:#f59e0b} .klient.overdue{border-left-color:#ef4444}
 .small{font-size:12px;color:#94a3b8}
 .bar{height:8px;background:#334155;border-radius:10px;overflow:hidden;margin:6px 0}
 .fill{height:100%;background:#22c55e} .fill.warn{background:#f59e0b} .fill.overdue{background:#ef4444}
-.timer{font-weight:bold;font-size:15px}
+.timer{font-weight:bold;font-size:16px;margin:6px 0}
+.timerBox{background:#1e293b;padding:8px;border-radius:8px;text-align:center;font-size:18px;font-weight:bold}
 </style>
 </head>
 <body>
-<h1>💼 WebWinkel Boekhou</h1>
-<p class="small">Alles in 1 file - jou geld, besigheid, timers</p>
+<h1>💼 WebWinkel Bookkeeping</h1>
+<p class="small">Everything saves on your phone - even if you close and reopen</p>
 
 <div class="card">
-  <div>BESIGHEID POT</div><div class="big green" id="besigheidPot">R0</div>
-  <div>MY GELD</div><div class="big blue" id="myGeld">R0</div>
-  <div>Uitstaande: <span class="orange" id="uitstaande">R0</span></div>
-  <button onclick="vraNotifikasie()" class="btn2">🔔 Skakel Reminders AAN</button>
-  <button onclick="clearAlles()" class="btnRed">🗑️ CLEAR ALLES - Begin van voor af</button>
+  <div>BUSINESS POT</div><div class="big green" id="besigheidPot">R0</div>
+  <div>MY MONEY</div><div class="big blue" id="myGeld">R0</div>
+  <div>Outstanding (not paid yet): <span class="orange" id="uitstaande">R0</span></div>
+  <div class="small" id="totalInfo"></div>
+  <button onclick="vraNotifikasie()" class="btn2">🔔 Turn Reminders ON</button>
+  <button onclick="clearAlles()" class="btnRed">🗑️ CLEAR ALL - Start From Scratch</button>
 </div>
 
 <div class="card">
-  <h3>➕ Nuwe Klient</h3>
-  <input id="naam" placeholder="Klient naam - bv Piet se Barbershop">
+  <h3>➕ New Client</h3>
+  <input id="naam" placeholder="Client name - e.g. Piet's Barbershop">
   <select id="tipe">
-    <option value="once">ONCE-OFF - 100% Besigheid</option>
+    <option value="once">ONCE-OFF - 100% to Business</option>
     <option value="monthly">MONTHLY - 50/50 + Timer</option>
   </select>
-  <input id="bedrag" type="number" placeholder="Bedrag bv 100">
-  <button onclick="voegBy()">Voeg By & Bereken Auto</button>
+  <input id="bedrag" type="number" placeholder="Amount e.g. 100">
+  <button onclick="voegBy()">Add & Auto Calculate</button>
+  <p class="small">Example: Monthly R100 = R50 Mine + R50 Business. Once-off R400 = R400 Business.</p>
 </div>
 
 <div class="card">
-  <h3>💸 Uitgawe (Besigheid)</h3>
-  <input id="uitgaweNaam" placeholder="bv Data">
-  <input id="uitgaweBedrag" type="number" placeholder="Bedrag bv 150">
-  <button onclick="voegUitgawe()" class="btnRed">Trek af van Besigheid Pot</button>
+  <h3>💸 Business Expense</h3>
+  <input id="uitgaweNaam" placeholder="e.g. Data">
+  <input id="uitgaweBedrag" type="number" placeholder="Amount e.g. 150">
+  <button onclick="voegUitgawe()" class="btnRed">Subtract from Business Pot</button>
 </div>
 
-<div class="card"><h3>👥 Kliente + Timers</h3><div id="lys"></div></div>
+<div class="card"><h3>👥 Clients + Live Timers</h3><div id="lys"></div></div>
 
 <div class="card">
-  <h3>📧 Email vir klient</h3>
-  <textarea id="emailBox" rows="6" placeholder="Klik op Email by 'n klient, dan kom die boodskap hier..."></textarea>
+  <h3>📧 Email for client</h3>
+  <textarea id="emailBox" rows="7" placeholder="Click Email on a client, message appears here in English..."></textarea>
   <button onclick="copyEmail()">Copy Email</button>
 </div>
 
 <script>
-let data = JSON.parse(localStorage.getItem('webwinkel_v2') || '[]');
-let uitgawes = JSON.parse(localStorage.getItem('webwinkel_uit_v2') || '[]');
+// --- STORAGE - BLY ALTYD, AL GAAN JY UIT EN WEER IN ---
+let data = JSON.parse(localStorage.getItem('webwinkel_final_clients') || '[]');
+let uitgawes = JSON.parse(localStorage.getItem('webwinkel_final_exp') || '[]');
+let totals = JSON.parse(localStorage.getItem('webwinkel_final_totals') || '{"business":0,"mine":0}');
 
-function save(){ localStorage.setItem('webwinkel_v2', JSON.stringify(data)); localStorage.setItem('webwinkel_uit_v2', JSON.stringify(uitgawes)); render(); }
+function save(){
+  localStorage.setItem('webwinkel_final_clients', JSON.stringify(data));
+  localStorage.setItem('webwinkel_final_exp', JSON.stringify(uitgawes));
+  localStorage.setItem('webwinkel_final_totals', JSON.stringify(totals));
+  render();
+}
 
 function voegBy(){
   let naam=document.getElementById('naam').value.trim();
   let tipe=document.getElementById('tipe').value;
   let bedrag=Number(document.getElementById('bedrag').value);
-  if(!naam||!bedrag) return alert('Vul naam + bedrag in!');
+  if(!naam||!bedrag) return alert('Fill in name + amount!');
   let nou=new Date().toISOString();
-  data.push({naam,tipe,bedrag,paid:false,datum:nou,laasteBetaal:nou,dueDate:new Date(Date.now()+30*24*60*60*1000).toISOString()});
+  // Monthly due = 30 days from now, Once-off has no timer
+  let due = tipe==='monthly' ? new Date(Date.now()+30*24*60*60*1000).toISOString() : null;
+  data.push({naam,tipe,bedrag,paid:false,datum:nou,laasteBetaal:nou,dueDate:due,totalPaid:0});
   document.getElementById('naam').value=''; document.getElementById('bedrag').value='';
   save();
 }
@@ -77,111 +89,161 @@ function voegBy(){
 function voegUitgawe(){
   let n=document.getElementById('uitgaweNaam').value.trim();
   let b=Number(document.getElementById('uitgaweBedrag').value);
-  if(!n||!b) return alert('Vul uitgawe in!');
+  if(!n||!b) return alert('Fill in expense!');
   uitgawes.push({n,b});
   document.getElementById('uitgaweNaam').value=''; document.getElementById('uitgaweBedrag').value='';
   save();
 }
 
+// MARK AS PAID - SIT GELD IN POTS EN HOU DIT DAAR
 function togglePaid(i){
-  data[i].paid=!data[i].paid;
-  if(data[i].paid){
-    data[i].laasteBetaal=new Date().toISOString();
-    data[i].dueDate=new Date(Date.now()+30*24*60*60*1000).toISOString();
+  let k=data[i];
+  if(!k.paid){
+    // Gaan van NIE PAID na PAID - TEL BY
+    k.paid=true;
+    k.laasteBetaal=new Date().toISOString();
+    k.totalPaid = (k.totalPaid||0) + k.bedrag;
+    if(k.tipe==='once'){
+      totals.business += k.bedrag; // 100% Business
+    } else {
+      totals.business += k.bedrag/2; // Presies verdeel
+      totals.mine += k.bedrag/2;
+    }
+    // Monthly: stel nuwe due vir volgende maand, maar MOENIE geld clear nie
+    if(k.tipe==='monthly'){
+      k.dueDate=new Date(Date.now()+30*24*60*60*1000).toISOString();
+    }
+  } else {
+    // Undo - as jy per ongeluk PAID gedruk het, haal dit weer uit
+    // Dit is NIE dieselfde as Volgende Maand nie!
+    if(!confirm("Undo PAID? This will remove R"+k.bedrag+" from your pots. Are you sure?")) return;
+    k.paid=false;
+    if(k.tipe==='once'){ totals.business -= k.bedrag; }
+    else { totals.business -= k.bedrag/2; totals.mine -= k.bedrag/2; }
+    k.totalPaid = Math.max(0,(k.totalPaid||0)-k.bedrag);
   }
   save();
 }
 
-function volgendeMaand(i){ data[i].paid=false; save(); }
-
-function deleteEen(i){
-  if(!confirm("Delete " + data[i].naam + "?")) return;
-  data.splice(i,1); save();
+// VOLGENDE MAAND - HOU GELD, MOENIE CLEAR NIE, MAAK NET WEER OOP VIR NUWE BETALING
+function volgendeMaand(i){
+  let k=data[i];
+  if(k.tipe!=='monthly') return;
+  // HOU totals.business en totals.mine soos dit is!
+  // Maak net klient weer oop en gee hom 'n nuwe 30-dae timer
+  k.paid=false;
+  k.dueDate=new Date(Date.now()+30*24*60*60*1000).toISOString();
+  save();
+  alert(k.naam + " is now open for next month. Your Business Pot stays at R" + getBusinessNet() + " - it was NOT cleared. When they pay again, it will ADD on top.");
 }
 
+function deleteEen(i){
+  if(!confirm("Delete " + data[i].naam + "? This will NOT remove money already in your pots.")) return;
+  data.splice(i,1); save();
+}
 function deleteUitgawe(i){ uitgawes.splice(i,1); save(); }
 
 function clearAlles(){
-  if(!confirm("Is jy seker? Dit gaan AL jou kliente, al jou geld en al jou uitgawes delete en alles na R0 sit!")) return;
-  let check2 = prompt("Tik DELETE om te confirm:");
-  if(check2 !== "DELETE"){ alert("Niks is geclear nie - jy het nie DELETE getik nie."); return; }
-  data=[]; uitgawes=[];
-  localStorage.removeItem('webwinkel_v2');
-  localStorage.removeItem('webwinkel_uit_v2');
+  if(!confirm("Are you sure? This will delete ALL clients, ALL money and ALL expenses and set everything to R0!")) return;
+  let check2 = prompt("Type DELETE to confirm:");
+  if(check2 !== "DELETE"){ alert("Nothing was cleared - you did not type DELETE."); return; }
+  data=[]; uitgawes=[]; totals={business:0,mine:0};
+  localStorage.removeItem('webwinkel_final_clients');
+  localStorage.removeItem('webwinkel_final_exp');
+  localStorage.removeItem('webwinkel_final_totals');
   save();
-  alert("Klaar! Alles is geclear. Jy begin nou van voor af met R0.");
+  alert("Done! Everything cleared. You start fresh at R0.");
+}
+
+function getBusinessNet(){
+  let uit = uitgawes.reduce((s,x)=>s+x.b,0);
+  return totals.business - uit;
 }
 
 function maakEmail(i){
   let k=data[i];
-  let dae = k.tipe==='monthly' ? Math.ceil((new Date(k.dueDate)-new Date())/(1000*60*60*24)) : 7;
-  let msg=`Hi ${k.naam},\n\nHoop dit gaan goed! Net 'n vriendelike reminder dat jou WebWinkel ${k.tipe==='monthly'?'monthly':'once-off'} van R${k.bedrag} oor ${dae} dae due is (${k.tipe==='monthly'?new Date(k.dueDate).toLocaleDateString('af-ZA'):'binnekort'}).\n\nLaat weet asb as jy betaal het sodat ek dit kan afmerk.\n\nDankie!\nGroete,\nDylan - WebWinkel`;
+  let dae = k.tipe==='monthly' && k.dueDate ? Math.ceil((new Date(k.dueDate)-new Date())/(1000*60*60*24)) : 7;
+  let dateStr = k.tipe==='monthly' && k.dueDate ? new Date(k.dueDate).toLocaleDateString('en-ZA') : 'soon';
+  let msg = "";
+  if(k.tipe==='monthly'){
+    msg = `Hi ${k.naam},\n\nI hope you are doing well!\n\nThis is a friendly reminder that your WebWinkel monthly hosting of R${k.bedrag} is due in ${dae} days (${dateStr}).\n\nPlease let me know once you have paid so I can mark it as paid.\n\nThank you so much for your support!\n\nKind regards,\nDylan - WebWinkel`;
+  } else {
+    msg = `Hi ${k.naam},\n\nI hope you are doing well!\n\nThis is a friendly reminder that your WebWinkel once-off payment of R${k.bedrag} is still outstanding.\n\nPlease let me know once you have paid so I can mark it as paid.\n\nThank you so much for your support!\n\nKind regards,\nDylan - WebWinkel`;
+  }
   document.getElementById('emailBox').value=msg;
   window.scrollTo(0,document.body.scrollHeight);
 }
+function copyEmail(){ navigator.clipboard.writeText(document.getElementById('emailBox').value); alert('Email copied!'); }
 
-function copyEmail(){ navigator.clipboard.writeText(document.getElementById('emailBox').value); alert('Email gecopy!'); }
+function formatTimer(dueDate){
+  let diff = new Date(dueDate) - new Date();
+  if(diff<=0) return {text:"🔴 OVERDUE! Payment was due!", dae:0, isOverdue:true};
+  let dae = Math.floor(diff/(1000*60*60*24));
+  let ure = Math.floor((diff%(1000*60*60*24))/(1000*60*60));
+  let min = Math.floor((diff%(1000*60*60))/(1000*60));
+  let sek = Math.floor((diff%(1000*60))/1000);
+  return {text:`⏰ ${dae} days, ${ure} hrs, ${min} min, ${sek} sec left`, dae, isOverdue:false, raw:diff};
+}
 
 function render(){
-  let besigheid=0,myne=0,uitstaan=0;
-  data.forEach(k=>{ if(!k.paid){uitstaan+=k.bedrag; return;} if(k.tipe==='once') besigheid+=k.bedrag; else {besigheid+=k.bedrag/2; myne+=k.bedrag/2;} });
-  besigheid-=uitgawes.reduce((s,x)=>s+x.b,0);
-  document.getElementById('besigheidPot').innerText='R'+besigheid;
-  document.getElementById('myGeld').innerText='R'+myne;
+  let uitstaan=0;
+  data.forEach(k=>{ if(!k.paid) uitstaan+=k.bedrag; });
+  let businessNet = getBusinessNet();
+  document.getElementById('besigheidPot').innerText='R'+businessNet;
+  document.getElementById('myGeld').innerText='R'+totals.mine;
   document.getElementById('uitstaande').innerText='R'+uitstaan;
+  document.getElementById('totalInfo').innerText = 'Total collected so far: R' + (totals.business + totals.mine) + ' | Expenses: R' + uitgawes.reduce((s,x)=>s+x.b,0);
 
   let html='';
   data.forEach((k,i)=>{
     let timerHtml='', klas='', barHtml='';
-    if(k.tipe==='monthly'){
-      let due=new Date(k.dueDate); let nou=new Date();
-      let daeOor=Math.ceil((due-nou)/(1000*60*60*24));
-      let verby=(30-daeOor)/30*100;
-      let kleur=''; let teks='';
-      if(daeOor<=0){ klas='overdue'; kleur='overdue'; teks=`🔴 OVERDUE! Was due ${due.toLocaleDateString('af-ZA')}`; }
-      else if(daeOor<=7){ klas='warn'; kleur='warn'; teks=`🟠 Nog ${daeOor} dae oor - STUUR EMAIL NOU! Due ${due.toLocaleDateString('af-ZA')}`; }
-      else { teks=`🟢 Nog ${daeOor} dae oor - Due ${due.toLocaleDateString('af-ZA')}`; }
-      timerHtml=`<div class="timer ${daeOor<=0?'red':daeOor<=7?'orange':''}">${teks}</div>`;
-      barHtml=`<div class="bar"><div class="fill ${kleur}" style="width:${Math.min(100,Math.max(0,verby))}%"></div></div>`;
-    } else {
-      timerHtml=`<div class="small">Once-off - geen timer nie</div>`;
+    if(k.tipe==='monthly' && k.dueDate){
+      let t = formatTimer(k.dueDate);
+      let dueStr = new Date(k.dueDate).toLocaleDateString('en-ZA');
+      let verby = Math.min(100, Math.max(0, (30 - t.dae)/30*100));
+      let kleur=''; 
+      if(t.isOverdue){ klas='overdue'; kleur='overdue'; }
+      else if(t.dae<=7){ klas='warn'; kleur='warn'; }
+      timerHtml=`<div class="timerBox ${t.isOverdue?'red':t.dae<=7?'orange':''}">${t.text}<div class="small" style="font-weight:normal">Due: ${dueStr} | ${k.paid?'PAID - Timer for NEXT month':'NOT PAID YET'}</div></div>`;
+      barHtml=`<div class="bar"><div class="fill ${kleur}" style="width:${verby}%"></div></div>`;
+    } else if(k.tipe==='once'){
+      timerHtml=`<div class="small">Once-off - No monthly timer. Once PAID, stays PAID forever.</div>`;
     }
-    let status=k.paid?'✅ PAID':'❌ NIE BETAAL NIE';
-    let verdeel=k.tipe==='once'?`100% Besigheid = R${k.bedrag}`:`50/50 = R${k.bedrag/2} Myne + R${k.bedrag/2} Besigheid`;
-    html+=`<div class="klient ${klas}"><b>${k.naam}</b> - ${k.tipe.toUpperCase()} - R${k.bedrag}<br><span class="small">${verdeel} | ${status}</span><br>${timerHtml}${barHtml}
-    <button onclick="togglePaid(${i})" style="background:${k.paid?'#ef4444':'#22c55e'};color:white">${k.paid?'Merk as NIE betaal nie':'Merk as PAID - reset timer 30 dae'}</button>
-    ${k.tipe==='monthly'?`<button onclick="volgendeMaand(${i})" class="btn2">Volgende Maand - maak weer oop</button>`:''}
-    <button onclick="maakEmail(${i})" class="btn2">📧 Maak Email</button>
-    <button onclick="deleteEen(${i})" class="btnGrey">🗑️ Delete hierdie klient</button></div>`;
+    let status=k.paid?'✅ PAID':'❌ NOT PAID';
+    let verdeel=k.tipe==='once'?`100% Business = R${k.bedrag}`:`Split exactly: R${k.bedrag/2} Mine + R${k.bedrag/2} Business (Total R${k.bedrag})`;
+    html+=`<div class="klient ${klas}"><b>${k.naam}</b> - ${k.tipe.toUpperCase()} - R${k.bedrag}<br><span class="small">${verdeel} | ${status} | Total paid so far: R${k.totalPaid||0}</span><br>${timerHtml}${barHtml}
+    <button onclick="togglePaid(${i})" style="background:${k.paid?'#ef4444':'#22c55e'};color:white">${k.paid?'Undo PAID (remove from pots)':'Mark as PAID - Add to pots'}</button>
+    ${k.tipe==='monthly'?`<button onclick="volgendeMaand(${i})" class="btnBlue">Next Month - Keep money, open again</button>`:''}
+    <button onclick="maakEmail(${i})" class="btn2">📧 Make Email (English)</button>
+    <button onclick="deleteEen(${i})" class="btnGrey">🗑️ Delete this client</button></div>`;
   });
-  if(!data.length) html='<p class="small">Nog geen kliente nie.</p>';
+  if(!data.length) html='<p class="small">No clients yet.</p>';
   document.getElementById('lys').innerHTML=html;
-  if(uitgawes.length) document.getElementById('lys').innerHTML+='<h4>Uitgawes:</h4>'+uitgawes.map((u,idx)=>`<p class="small">- ${u.n} : R${u.b} <span onclick="deleteUitgawe(${idx})" style="color:#ef4444;cursor:pointer"> [x]</span></p>`).join('');
+  if(uitgawes.length) document.getElementById('lys').innerHTML+='<h4>Expenses:</h4>'+uitgawes.map((u,idx)=>`<p class="small">- ${u.n} : R${u.b} <span onclick="deleteUitgawe(${idx})" style="color:#ef4444;cursor:pointer"> [x]</span></p>`).join('');
 }
 
 function vraNotifikasie(){
   if("Notification" in window){
     Notification.requestPermission().then(p=>{
-      if(p==='granted') new Notification('WebWinkel Reminders AAN ✅',{body:'Elke klient het nou sy eie timer!'});
+      if(p==='granted') new Notification('WebWinkel Reminders ON ✅',{body:'Each client now has his own live timer!'});
     });
-  } else alert('Jou foon support nie notifications nie, maar timers werk steeds.');
+  } else alert('Your phone does not support notifications, but timers still work.');
 }
-
 function checkReminders(){
   data.forEach(k=>{
-    if(k.tipe!=='monthly') return;
+    if(k.tipe!=='monthly' || !k.dueDate) return;
     let daeOor=Math.ceil((new Date(k.dueDate)-new Date())/(1000*60*60*24));
     if(daeOor===7 && Notification.permission==='granted' && !k.paid){
-      new Notification(`WebWinkel: ${k.naam} moet betaal!`,{body:`Nog 7 dae oor - R${k.bedrag} due. Stuur email!`});
+      new Notification(`WebWinkel: ${k.naam} must pay!`,{body:`Only 7 days left - R${k.bedrag} due. Send email!`});
     }
     if(daeOor===0 && Notification.permission==='granted' && !k.paid){
-      new Notification(`WebWinkel: ${k.naam} is OVERDUE!`,{body:`R${k.bedrag} was vandag due!`});
+      new Notification(`WebWinkel: ${k.naam} is OVERDUE!`,{body:`R${k.bedrag} was due today!`});
     }
   });
 }
-
 render(); checkReminders();
-setInterval(render, 60000);
+// Update timer elke sekonde - letterlik live
+setInterval(render, 1000);
 </script>
 </body>
 </html>
