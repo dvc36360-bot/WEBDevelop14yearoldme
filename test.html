@@ -3,37 +3,31 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WebWinkel Boekhou - FINAL SAVED</title>
+<title>WebWinkel Boekhou</title>
 <style>
 *{box-sizing:border-box;font-family:Arial} body{margin:0;background:#0f172a;color:white;padding:15px}
 .card{background:#1e293b;padding:15px;border-radius:12px;margin-bottom:12px}
 .big{font-size:28px;font-weight:bold} .green{color:#4ade80} .blue{color:#60a5fa} .orange{color:#fbbf24} .red{color:#ef4444}
 input,select,button,textarea{width:100%;padding:10px;margin:5px 0;border-radius:8px;border:none}
 input,select,textarea{background:#334155;color:white} button{background:#22c55e;color:black;font-weight:bold;cursor:pointer}
-.btn2{background:#f59e0b} .btnRed{background:#ef4444;color:white} .btnGrey{background:#64748b;color:white} .btnBlue{background:#3b82f6;color:white} .btnPurple{background:#a855f7;color:white}
+.btn2{background:#f59e0b} .btnRed{background:#ef4444;color:white} .btnGrey{background:#64748b;color:white} .btnBlue{background:#3b82f6;color:white}
 .klient{background:#0f172a;padding:12px;border-radius:10px;margin-top:10px;border-left:5px solid #22c55e}
 .klient.warn{border-left-color:#f59e0b} .klient.overdue{border-left-color:#ef4444}
 .small{font-size:12px;color:#94a3b8}
 .bar{height:8px;background:#334155;border-radius:10px;overflow:hidden;margin:6px 0}
 .fill{height:100%;background:#22c55e} .fill.warn{background:#f59e0b} .fill.overdue{background:#ef4444}
 .timerBox{background:#1e293b;padding:8px;border-radius:8px;text-align:center;font-size:18px;font-weight:bold}
-.saved{color:#4ade80;font-size:12px}
 </style>
 </head>
 <body>
 <h1>💼 WebWinkel Bookkeeping</h1>
-<p class="small">Saves automatically - even if you close browser</p>
-<p class="saved" id="savedStatus">✅ Loaded - Last saved: checking...</p>
+<p class="small" id="savedStatus">Loading...</p>
 
 <div class="card">
   <div>BUSINESS POT</div><div class="big green" id="besigheidPot">R0</div>
   <div>MY MONEY</div><div class="big blue" id="myGeld">R0</div>
   <div>Outstanding: <span class="orange" id="uitstaande">R0</span></div>
   <div class="small" id="totalInfo"></div>
-  <button onclick="forceSave()" class="btnBlue">💾 SAVE NOW - Force Save</button>
-  <button onclick="exportBackup()" class="btnPurple">📤 Export Backup (Save to phone)</button>
-  <button onclick="document.getElementById('importFile').click()" class="btnGrey">📥 Import Backup</button>
-  <input type="file" id="importFile" style="display:none" accept=".json,.txt" onchange="importBackup(event)">
   <button onclick="vraNotifikasie()" class="btn2">🔔 Turn Reminders ON</button>
   <button onclick="clearAlles()" class="btnRed">🗑️ CLEAR ALL - Start From Scratch</button>
 </div>
@@ -62,56 +56,26 @@ input,select,textarea{background:#334155;color:white} button{background:#22c55e;
 </div>
 
 <script>
-// ===== JAVA - PERSISTENT STORAGE FIX =====
-const KEY = 'webwinkel_FINAL_V3_ALL_IN_ONE';
+const KEY = 'webwinkel_bookkeeping_v1';
 let state = { clients: [], expenses: [], totals: {business:0, mine:0} };
 
+// LOAD - as jy uitgaan en weer ingaan, laai hy dieselfde info
 function load(){
-  try{
-    let saved = localStorage.getItem(KEY);
-    if(saved){
-      let parsed = JSON.parse(saved);
-      // Support old keys too
-      if(parsed.clients) state = parsed;
-    } else {
-      // Probeer ou keys laai as jy van ou file af kom
-      let oldClients = localStorage.getItem('webwinkel_final_clients');
-      let oldExp = localStorage.getItem('webwinkel_final_exp');
-      let oldTotals = localStorage.getItem('webwinkel_final_totals');
-      if(oldClients){ state.clients = JSON.parse(oldClients); }
-      if(oldExp){ state.expenses = JSON.parse(oldExp); }
-      if(oldTotals){ state.totals = JSON.parse(oldTotals); }
-      if(oldClients) saveNow(); // Migreer na nuwe key
-    }
-    console.log("Loaded:", state);
-    document.getElementById('savedStatus').innerText = "✅ Loaded - Clients: " + state.clients.length + " | Business: R" + state.totals.business + " | Mine: R" + state.totals.mine;
-  } catch(e){
-    console.log("Load error", e);
-    alert("Could not load saved data. Your browser may be in Private/Incognito mode - that deletes everything when you close it!");
-  }
+  let s = localStorage.getItem(KEY);
+  if(s){ try{ state = JSON.parse(s); }catch(e){} }
+  document.getElementById('savedStatus').innerText = "✅ Auto Save ON - Info stays until YOU clear it";
 }
 
-function saveNow(){
-  try{
-    localStorage.setItem(KEY, JSON.stringify(state));
-    // Backup in 2 plekke ook, vir safety
-    localStorage.setItem(KEY + '_backup', JSON.stringify(state));
-    let now = new Date().toLocaleTimeString('en-ZA');
-    document.getElementById('savedStatus').innerText = "✅ Saved at " + now + " - Business: R" + state.totals.business + " | Mine: R" + state.totals.mine;
-    console.log("Saved at", now, state);
-  } catch(e){
-    alert("Cannot save! Your browser is blocking storage. Are you in Incognito/Private mode? That deletes everything when you close.");
-  }
+// SAVE - outomaties, jy hoef niks te druk nie
+function save(){
+  localStorage.setItem(KEY, JSON.stringify(state));
 }
 
-function forceSave(){ saveNow(); alert("Saved! Your money is now safe. Business: R" + getBusinessNet() + " | Mine: R" + state.totals.mine); }
+// Save as jy uitgaan
+window.addEventListener('beforeunload', save);
+window.addEventListener('pagehide', save);
+document.addEventListener('visibilitychange', ()=>{ if(document.hidden) save(); });
 
-// Save as jy uitgaan - BELANGRIK
-window.addEventListener('beforeunload', saveNow);
-window.addEventListener('pagehide', saveNow);
-document.addEventListener('visibilitychange', function(){ if(document.hidden) saveNow(); });
-
-// ===== APP LOGIC =====
 function voegBy(){
   let naam=document.getElementById('naam').value.trim();
   let tipe=document.getElementById('tipe').value;
@@ -121,7 +85,7 @@ function voegBy(){
   let due = tipe==='monthly' ? new Date(Date.now()+30*24*60*60*1000).toISOString() : null;
   state.clients.push({naam,tipe,bedrag,paid:false,datum:nou,laasteBetaal:nou,dueDate:due,totalPaid:0});
   document.getElementById('naam').value=''; document.getElementById('bedrag').value='';
-  saveNow(); render();
+  save(); render();
 }
 function voegUitgawe(){
   let n=document.getElementById('uitgaweNaam').value.trim();
@@ -129,7 +93,7 @@ function voegUitgawe(){
   if(!n||!b) return alert('Fill in expense!');
   state.expenses.push({n,b});
   document.getElementById('uitgaweNaam').value=''; document.getElementById('uitgaweBedrag').value='';
-  saveNow(); render();
+  save(); render();
 }
 function togglePaid(i){
   let k=state.clients[i];
@@ -144,37 +108,28 @@ function togglePaid(i){
     else { state.totals.business-=k.bedrag/2; state.totals.mine-=k.bedrag/2; }
     k.totalPaid=Math.max(0,(k.totalPaid||0)-k.bedrag);
   }
-  saveNow(); render();
+  save(); render();
 }
 function volgendeMaand(i){
   let k=state.clients[i];
   if(k.tipe!=='monthly') return;
+  // HOU geld - clear NIE
   k.paid=false;
   k.dueDate=new Date(Date.now()+30*24*60*60*1000).toISOString();
-  saveNow(); render();
-  alert(k.naam + " open for next month. Money KEPT - Business still R" + getBusinessNet() + ". When they pay again, it ADDS on top.");
+  save(); render();
+  alert(k.naam + " open for next month. Money KEPT. When they pay again, it ADDS on top.");
 }
-function deleteEen(i){ if(!confirm("Delete " + state.clients[i].naam + "? Money already in pots stays.")) return; state.clients.splice(i,1); saveNow(); render(); }
-function deleteUitgawe(i){ state.expenses.splice(i,1); saveNow(); render(); }
+function deleteEen(i){ if(!confirm("Delete " + state.clients[i].naam + "? Money in pots stays.")) return; state.clients.splice(i,1); save(); render(); }
+function deleteUitgawe(i){ state.expenses.splice(i,1); save(); render(); }
 function clearAlles(){
-  if(!confirm("Are you sure? Delete ALL clients, money, expenses to R0!")) return;
+  if(!confirm("Are you sure? Delete ALL to R0!")) return;
   let c=prompt("Type DELETE to confirm:");
   if(c!=="DELETE"){ alert("Nothing cleared."); return; }
   state={clients:[],expenses:[],totals:{business:0,mine:0}};
-  localStorage.removeItem(KEY); localStorage.removeItem(KEY+'_backup');
-  saveNow(); render(); alert("Cleared. Fresh start R0.");
+  localStorage.removeItem(KEY);
+  save(); render(); alert("Cleared. Fresh start R0.");
 }
 function getBusinessNet(){ return state.totals.business - state.expenses.reduce((s,x)=>s+x.b,0); }
-
-function exportBackup(){
-  let blob = new Blob([JSON.stringify(state)], {type:'application/json'});
-  let a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='webwinkel-backup.json'; a.click();
-  alert("Backup downloaded! Keep it safe in your Files. If your browser ever clears, you can Import it back.");
-}
-function importBackup(e){
-  let file=e.target.files[0]; if(!file) return;
-  let r=new FileReader(); r.onload=function(){ try{ state=JSON.parse(r.result); saveNow(); render(); alert("Backup restored!"); } catch(err){ alert("Invalid backup file"); } }; r.readAsText(file);
-}
 function maakEmail(i){
   let k=state.clients[i];
   let dae=k.tipe==='monthly'&&k.dueDate?Math.ceil((new Date(k.dueDate)-new Date())/(1000*60*60*24)):7;
@@ -197,8 +152,7 @@ function formatTimer(dueDate){
 }
 function render(){
   let uitstaan=0; state.clients.forEach(k=>{ if(!k.paid) uitstaan+=k.bedrag; });
-  let businessNet=getBusinessNet();
-  document.getElementById('besigheidPot').innerText='R'+businessNet;
+  document.getElementById('besigheidPot').innerText='R'+getBusinessNet();
   document.getElementById('myGeld').innerText='R'+state.totals.mine;
   document.getElementById('uitstaande').innerText='R'+uitstaan;
   document.getElementById('totalInfo').innerText='Total collected: R'+(state.totals.business+state.totals.mine)+' | Expenses: R'+state.expenses.reduce((s,x)=>s+x.b,0);
@@ -212,9 +166,9 @@ function render(){
       let kleur=''; if(t.isOverdue){klas='overdue';kleur='overdue';} else if(t.dae<=7){klas='warn';kleur='warn';}
       timerHtml=`<div class="timerBox ${t.isOverdue?'red':t.dae<=7?'orange':''}">${t.text}<div class="small" style="font-weight:normal">Due: ${dueStr} | ${k.paid?'PAID - Timer for NEXT month':'NOT PAID YET'}</div></div>`;
       barHtml=`<div class="bar"><div class="fill ${kleur}" style="width:${verby}%"></div></div>`;
-    } else if(k.tipe==='once'){ timerHtml=`<div class="small">Once-off - No monthly timer. Once PAID, stays PAID forever.</div>`; }
+    } else if(k.tipe==='once'){ timerHtml=`<div class="small">Once-off - No timer. Once PAID, stays PAID.</div>`; }
     let status=k.paid?'✅ PAID':'❌ NOT PAID';
-    let verdeel=k.tipe==='once'?`100% Business = R${k.bedrag}`:`Split exactly: R${k.bedrag/2} Mine + R${k.bedrag/2} Business (Total R${k.bedrag})`;
+    let verdeel=k.tipe==='once'?`100% Business = R${k.bedrag}`:`Split: R${k.bedrag/2} Mine + R${k.bedrag/2} Business`;
     html+=`<div class="klient ${klas}"><b>${k.naam}</b> - ${k.tipe.toUpperCase()} - R${k.bedrag}<br><span class="small">${verdeel} | ${status} | Total paid: R${k.totalPaid||0}</span><br>${timerHtml}${barHtml}
     <button onclick="togglePaid(${i})" style="background:${k.paid?'#ef4444':'#22c55e'};color:white">${k.paid?'Undo PAID':'Mark as PAID - Add to pots'}</button>
     ${k.tipe==='monthly'?`<button onclick="volgendeMaand(${i})" class="btnBlue">Next Month - Keep money, open again</button>`:''}
@@ -225,13 +179,11 @@ function render(){
   document.getElementById('lys').innerHTML=html;
   if(state.expenses.length) document.getElementById('lys').innerHTML+='<h4>Expenses:</h4>'+state.expenses.map((u,idx)=>`<p class="small">- ${u.n} : R${u.b} <span onclick="deleteUitgawe(${idx})" style="color:#ef4444;cursor:pointer"> [x]</span></p>`).join('');
 }
-function vraNotifikasie(){ if("Notification" in window){ Notification.requestPermission().then(p=>{ if(p==='granted') new Notification('WebWinkel Reminders ON ✅',{body:'Each client has his own live timer!'}); }); } else alert('Phone does not support notifications, timers still work.'); }
-function checkReminders(){ state.clients.forEach(k=>{ if(k.tipe!=='monthly'||!k.dueDate) return; let daeOor=Math.ceil((new Date(k.dueDate)-new Date())/(1000*60*60*24)); if(daeOor===7&&Notification.permission==='granted'&&!k.paid){ new Notification(`WebWinkel: ${k.naam} must pay!`,{body:`Only 7 days left - R${k.bedrag} due.`}); } if(daeOor===0&&Notification.permission==='granted'&&!k.paid){ new Notification(`WebWinkel: ${k.naam} OVERDUE!`,{body:`R${k.bedrag} was due today!`}); } }); }
+function vraNotifikasie(){ if("Notification" in window){ Notification.requestPermission().then(p=>{ if(p==='granted') new Notification('WebWinkel Reminders ON ✅',{body:'Each client has his own live timer!'}); }); } }
+function checkReminders(){ state.clients.forEach(k=>{ if(k.tipe!=='monthly'||!k.dueDate) return; let daeOor=Math.ceil((new Date(k.dueDate)-new Date())/(1000*60*60*24)); if(daeOor===7&&Notification.permission==='granted'&&!k.paid){ new Notification(`WebWinkel: ${k.naam} must pay!`,{body:`Only 7 days left - R${k.bedrag} due.`}); } }); }
 
-// START
 load(); render(); checkReminders();
 setInterval(render, 1000);
-setInterval(saveNow, 10000); // Auto-save elke 10 sekondes ook
 </script>
 </body>
 </html>
