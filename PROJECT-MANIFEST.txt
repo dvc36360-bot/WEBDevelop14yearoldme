@@ -1,0 +1,10 @@
+WebWinkel 2.0
+Logo: assets/webwinkel-logo.jpg
+Frontend: HTML/CSS/JavaScript
+Backend: Supabase
+Hosting target: GitHub Pages
+Pages:
+  index.html
+  client/home.html, orders.html, settings.html, login.html, signup.html
+  admin/login.html, index.html, products.html, orders.html, settings.html, subscriptions.html
+Each HTML page has a matching CSS file.
